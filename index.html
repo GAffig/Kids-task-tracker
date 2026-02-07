@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrightSteps • Kids Task Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="top-bar">
+        <div class="brand">
+          <span class="logo">✨</span>
+          <div>
+            <p class="eyebrow">BrightSteps</p>
+            <h1>Kids Task Tracker</h1>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="ghost" id="themeToggle" type="button">Switch Theme</button>
+          <button class="primary" id="openTaskForm" type="button">+ New Task</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="sidebar">
+          <section class="card profile-card">
+            <h2>Family Spotlight</h2>
+            <div class="kids">
+              <button class="kid-chip active" data-kid="Ava">
+                <span class="avatar">🦄</span>
+                Ava
+              </button>
+              <button class="kid-chip" data-kid="Leo">
+                <span class="avatar">🦁</span>
+                Leo
+              </button>
+              <button class="kid-chip" data-kid="Mia">
+                <span class="avatar">🐼</span>
+                Mia
+              </button>
+            </div>
+            <div class="points-summary" id="pointsSummary"></div>
+          </section>
+
+          <section class="card">
+            <h2>Daily Progress</h2>
+            <div class="progress-ring">
+              <div class="ring" id="progressRing">
+                <span id="progressPercent">0%</span>
+              </div>
+              <div>
+                <p class="muted">Tasks complete today</p>
+                <p class="stat" id="todayCounts">0 / 0</p>
+                <p class="streak">🔥 Streak: <span id="streakCount">0</span> days</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="card focus-card">
+            <h2>Focus Timer</h2>
+            <p class="muted">Pick a time and earn a bonus star!</p>
+            <div class="timer" id="timerDisplay">15:00</div>
+            <div class="timer-controls">
+              <button class="ghost" data-duration="15">15 min</button>
+              <button class="ghost" data-duration="25">25 min</button>
+              <button class="primary" id="startTimer" type="button">Start</button>
+              <button class="ghost" id="resetTimer" type="button">Reset</button>
+            </div>
+            <div class="timer-progress">
+              <div id="timerBar"></div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="main-panel">
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h2>Today’s Adventure</h2>
+                <p class="muted">Fun, colorful, and totally achievable.</p>
+              </div>
+              <div class="filters" id="taskFilters">
+                <button class="chip active" data-filter="all">All</button>
+                <button class="chip" data-filter="today">Today</button>
+                <button class="chip" data-filter="completed">Completed</button>
+              </div>
+            </div>
+            <ul class="task-list" id="taskList"></ul>
+          </section>
+
+          <section class="card">
+            <div class="card-header">
+              <div>
+                <h2>Week at a Glance</h2>
+                <p class="muted">Plan ahead and keep routines smooth.</p>
+              </div>
+              <button class="ghost" id="shufflePlan" type="button">Shuffle Ideas</button>
+            </div>
+            <div class="schedule" id="scheduleGrid"></div>
+          </section>
+        </section>
+
+        <aside class="side-panel">
+          <section class="card reward-card">
+            <div class="card-header">
+              <div>
+                <h2>Reward Shop</h2>
+                <p class="muted">Trade stars for rewards.</p>
+              </div>
+              <select id="rewardKidSelect" aria-label="Select kid"></select>
+            </div>
+            <ul class="reward-list" id="rewardList"></ul>
+            <form class="reward-form" id="rewardForm">
+              <input type="text" name="reward" placeholder="New reward idea" required />
+              <input type="number" name="cost" placeholder="Stars" min="1" required />
+              <button class="primary" type="submit">Add Reward</button>
+            </form>
+          </section>
+
+          <section class="card">
+            <h2>Achievements</h2>
+            <div class="badge-grid" id="badgeGrid"></div>
+          </section>
+
+          <section class="card">
+            <h2>Family Leaderboard</h2>
+            <ol class="leaderboard" id="leaderboard"></ol>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <dialog class="modal" id="taskModal">
+      <form method="dialog" class="modal-content" id="taskForm">
+        <h2>Add a new task</h2>
+        <label>
+          Task name
+          <input type="text" name="title" placeholder="Brush teeth" required />
+        </label>
+        <label>
+          Assign to
+          <select name="kid" required>
+            <option value="Ava">Ava</option>
+            <option value="Leo">Leo</option>
+            <option value="Mia">Mia</option>
+          </select>
+        </label>
+        <label>
+          Category
+          <select name="category" required>
+            <option value="Morning">Morning</option>
+            <option value="School">School</option>
+            <option value="Home">Home</option>
+            <option value="Kindness">Kindness</option>
+            <option value="Adventure">Adventure</option>
+          </select>
+        </label>
+        <label>
+          Due date
+          <input type="date" name="due" required />
+        </label>
+        <label>
+          Stars
+          <input type="number" name="points" min="1" value="5" required />
+        </label>
+        <div class="modal-actions">
+          <button class="ghost" type="reset" id="closeTaskForm">Cancel</button>
+          <button class="primary" type="submit">Save task</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
