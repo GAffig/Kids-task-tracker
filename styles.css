@@ -198,18 +198,6 @@ body {
   gap: 8px;
 }
 
-.kid-form {
-  display: grid;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.kid-form input {
-  border-radius: 10px;
-  border: 1px solid #e0e3ff;
-  padding: 8px 10px;
-}
-
 .point-row {
   display: flex;
   justify-content: space-between;
@@ -301,11 +289,6 @@ body {
   text-decoration: line-through;
 }
 
-.empty-state {
-  color: var(--muted);
-  font-weight: 600;
-}
-
 .task-meta {
   display: flex;
   flex-wrap: wrap;
@@ -362,11 +345,6 @@ body {
   background: #f7f8ff;
   padding: 10px 12px;
   border-radius: 14px;
-}
-
-.reward-item.empty-state {
-  justify-content: center;
-  text-align: center;
 }
 
 .reward-form {
@@ -444,10 +422,6 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-}
-
-.is-disabled {
-  opacity: 0.5;
 }
 
 .dark {
