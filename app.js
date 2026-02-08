@@ -49,6 +49,78 @@ const state = {
   filter: "all",
   activeKid: null,
   selectedRewardKid: null,
+const kids = ["Ava", "Leo", "Mia"];
+const defaultTasks = [
+  {
+    id: "t1",
+    title: "Make the bed",
+    kid: "Ava",
+    category: "Morning",
+    due: todayISO(),
+    points: 5,
+    completed: false,
+  },
+  {
+    id: "t2",
+    title: "Pack school bag",
+    kid: "Leo",
+    category: "School",
+    due: todayISO(),
+    points: 8,
+    completed: true,
+  },
+  {
+    id: "t3",
+    title: "Feed the pet",
+    kid: "Mia",
+    category: "Home",
+    due: todayISO(),
+    points: 6,
+    completed: false,
+  },
+  {
+    id: "t4",
+    title: "Share a compliment",
+    kid: "Ava",
+    category: "Kindness",
+    due: addDays(1),
+    points: 7,
+    completed: false,
+  },
+  {
+    id: "t5",
+    title: "Read for 20 minutes",
+    kid: "Leo",
+    category: "Adventure",
+    due: addDays(2),
+    points: 10,
+    completed: false,
+  },
+];
+
+const defaultRewards = [
+  { id: "r1", name: "Extra story time", cost: 25 },
+  { id: "r2", name: "Choose movie night", cost: 40 },
+  { id: "r3", name: "Bake a treat", cost: 30 },
+];
+
+const scheduleIdeas = [
+  { day: "Mon", idea: "Morning stretch + tidy toys" },
+  { day: "Tue", idea: "Library visit + gratitude note" },
+  { day: "Wed", idea: "Garden helper + science show" },
+  { day: "Thu", idea: "Music practice + kindness call" },
+  { day: "Fri", idea: "Art hour + family dance" },
+  { day: "Sat", idea: "Nature walk + picnic prep" },
+  { day: "Sun", idea: "Plan the week + rest day" },
+];
+
+const state = {
+  tasks: loadData("tasks", defaultTasks),
+  rewards: loadData("rewards", defaultRewards),
+  stats: loadData("stats", buildDefaultStats()),
+  filter: "all",
+  activeKid: "Ava",
+  selectedRewardKid: "Ava",
   timer: {
     duration: 15 * 60,
     remaining: 15 * 60,
@@ -72,6 +144,9 @@ async function init() {
     hydrateFromLocal();
   }
   ensureActiveKid();
+init();
+
+function init() {
   renderAll();
   bindEvents();
 }
@@ -94,12 +169,21 @@ function bindEvents() {
     if (!chip) return;
     state.activeKid = chip.dataset.kid;
     renderAll();
+  document.querySelectorAll(".kid-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      state.activeKid = chip.dataset.kid;
+      document
+        .querySelectorAll(".kid-chip")
+        .forEach((node) => node.classList.toggle("active", node === chip));
+      renderAll();
+    });
   });
 
   openTaskForm.addEventListener("click", () => taskModal.showModal());
   closeTaskForm.addEventListener("click", () => taskModal.close());
 
   taskForm.addEventListener("submit", async (event) => {
+  taskForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(taskForm);
     const newTask = {
@@ -113,6 +197,7 @@ function bindEvents() {
     };
     state.tasks.unshift(newTask);
     await persist();
+    persist();
     taskForm.reset();
     taskModal.close();
     renderAll();
@@ -135,6 +220,7 @@ function bindEvents() {
   });
 
   rewardForm.addEventListener("submit", async (event) => {
+  rewardForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(rewardForm);
     const reward = {
@@ -144,6 +230,7 @@ function bindEvents() {
     };
     state.rewards.push(reward);
     await persist();
+    persist();
     rewardForm.reset();
     renderRewards();
   });
@@ -157,6 +244,7 @@ function bindEvents() {
     if (state.schedule.length > 1) {
       state.schedule.push(state.schedule.shift());
     }
+    scheduleIdeas.push(scheduleIdeas.shift());
     renderSchedule();
   });
 
@@ -194,6 +282,9 @@ function renderTasks() {
       '<li class="task-item empty-state">Add a kid to start building tasks.</li>';
     return;
   }
+}
+
+function renderTasks() {
   const filtered = state.tasks.filter((task) => {
     if (state.filter === "completed") return task.completed;
     if (state.filter === "today") return task.due === todayISO();
@@ -230,6 +321,10 @@ function renderTasks() {
     });
     item.querySelector("button").addEventListener("click", () => {
       void toggleTask(task.id, !task.completed);
+      toggleTask(task.id, event.target.checked);
+    });
+    item.querySelector("button").addEventListener("click", () => {
+      toggleTask(task.id, !task.completed);
     });
 
     taskList.appendChild(item);
@@ -247,6 +342,11 @@ function renderPoints() {
       (kid) =>
         `<div class="point-row"><span>${kid.name}</span><span>${kid.points} ⭐</span></div>`
     )
+  pointsSummary.innerHTML = kids
+    .map((kid) => {
+      const points = state.stats[kid].points;
+      return `<div class="point-row"><span>${kid}</span><span>${points} ⭐</span></div>`;
+    })
     .join("");
 }
 
@@ -318,6 +418,11 @@ function renderLeaderboard() {
   const sorted = [...state.kids].sort((a, b) => b.points - a.points);
   leaderboard.innerHTML = sorted
     .map((kid) => `<li>${kid.name} • ${kid.points} ⭐</li>`)
+  const sorted = [...kids].sort(
+    (a, b) => state.stats[b].points - state.stats[a].points
+  );
+  leaderboard.innerHTML = sorted
+    .map((kid) => `<li>${kid} • ${state.stats[kid].points} ⭐</li>`)
     .join("");
 }
 
@@ -328,6 +433,7 @@ function renderSchedule() {
     return;
   }
   scheduleGrid.innerHTML = state.schedule
+  scheduleGrid.innerHTML = scheduleIdeas
     .map(
       (day) => `
       <article class="day-card">
@@ -352,6 +458,7 @@ function renderRewards() {
   }
   const selectedKid = getKidByName(state.selectedRewardKid);
   const kidPoints = selectedKid?.points ?? 0;
+  const kidPoints = state.stats[state.selectedRewardKid].points;
   rewardList.innerHTML = state.rewards
     .map((reward) => {
       const affordable = kidPoints >= reward.cost;
@@ -383,6 +490,13 @@ function renderRewards() {
         currentKid.points = Math.max(0, currentKid.points - reward.cost);
       }
       await persist();
+    button.addEventListener("click", () => {
+      const rewardId = button.dataset.reward;
+      const reward = state.rewards.find((item) => item.id === rewardId);
+      if (!reward) return;
+      if (state.stats[state.selectedRewardKid].points < reward.cost) return;
+      state.stats[state.selectedRewardKid].points -= reward.cost;
+      persist();
       renderAll();
     });
   });
@@ -395,6 +509,12 @@ function populateRewardKidSelect() {
         `<option value="${kid.name}" ${
           state.selectedRewardKid === kid.name ? "selected" : ""
         }>${kid.name}</option>`
+  rewardKidSelect.innerHTML = kids
+    .map(
+      (kid) =>
+        `<option value="${kid}" ${
+          state.selectedRewardKid === kid ? "selected" : ""
+        }>${kid}</option>`
     )
     .join("");
 }
@@ -406,6 +526,7 @@ function populateTaskKidSelect() {
 }
 
 async function toggleTask(taskId, completed) {
+function toggleTask(taskId, completed) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   if (task.completed === completed) return;
@@ -423,6 +544,20 @@ async function toggleTask(taskId, completed) {
   }
 
   await persist();
+
+  if (completed) {
+    state.stats[task.kid].points += task.points;
+    state.stats.completed += 1;
+    updateStreak();
+  } else {
+    state.stats[task.kid].points = Math.max(
+      0,
+      state.stats[task.kid].points - task.points
+    );
+    state.stats.completed = Math.max(0, state.stats.completed - 1);
+  }
+
+  persist();
   renderAll();
 }
 
@@ -466,6 +601,8 @@ function handleTimerToggle() {
         activeKid.points += 3;
       }
       void persist();
+      state.stats[state.activeKid].points += 3;
+      persist();
       renderAll();
     }
     updateTimerUI();
@@ -492,6 +629,7 @@ function totalPoints() {
     (sum, kid) => sum + (kid.points ?? 0),
     0
   );
+  return kids.reduce((sum, kid) => sum + state.stats[kid].points, 0);
 }
 
 function buildDefaultStats() {
@@ -499,6 +637,12 @@ function buildDefaultStats() {
     completed: 0,
     streak: 0,
     lastCompletionDate: null,
+    Ava: { points: 20 },
+    Leo: { points: 15 },
+    Mia: { points: 12 },
+    completed: 3,
+    streak: 1,
+    lastCompletionDate: todayISO(),
   };
 }
 
@@ -658,6 +802,10 @@ function normalizeSchedule(schedule) {
     day: item.day,
     idea: item.idea,
   }));
+function persist() {
+  localStorage.setItem("tasks", JSON.stringify(state.tasks));
+  localStorage.setItem("rewards", JSON.stringify(state.rewards));
+  localStorage.setItem("stats", JSON.stringify(state.stats));
 }
 
 function todayISO() {
