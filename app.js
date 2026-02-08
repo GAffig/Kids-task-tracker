@@ -1,367 +1,899 @@
-const themeToggle = document.getElementById("themeToggle");
-const homeButton = document.getElementById("homeButton");
-const toggleThemeCard = document.getElementById("toggleThemeCard");
-const resetData = document.getElementById("resetData");
-
-const homeSection = document.getElementById("homeSection");
-const parentSection = document.getElementById("parentSection");
-const kidsLoginSection = document.getElementById("kidsLoginSection");
-const kidDashboardSection = document.getElementById("kidDashboardSection");
-const reportsSection = document.getElementById("reportsSection");
-const settingsSection = document.getElementById("settingsSection");
-
-const kidForm = document.getElementById("kidForm");
-const taskForm = document.getElementById("taskForm");
-const assignForm = document.getElementById("assignForm");
-const kidList = document.getElementById("kidList");
 const taskList = document.getElementById("taskList");
-const assignmentList = document.getElementById("assignmentList");
-const assignKid = document.getElementById("assignKid");
-const assignTask = document.getElementById("assignTask");
+const taskFilters = document.getElementById("taskFilters");
+const pointsSummary = document.getElementById("pointsSummary");
+const kidList = document.getElementById("kidList");
+const kidForm = document.getElementById("kidForm");
+const taskKidSelect = document.getElementById("taskKidSelect");
+const tasksCard = document.getElementById("tasksCard");
+const scheduleCard = document.getElementById("scheduleCard");
+const rewardCard = document.getElementById("rewardCard");
+const achievementsCard = document.getElementById("achievementsCard");
+const leaderboardCard = document.getElementById("leaderboardCard");
+const progressCard = document.getElementById("progressCard");
+const timerCard = document.getElementById("timerCard");
+const progressRing = document.getElementById("progressRing");
+const progressPercent = document.getElementById("progressPercent");
+const todayCounts = document.getElementById("todayCounts");
+const streakCount = document.getElementById("streakCount");
+const badgeGrid = document.getElementById("badgeGrid");
+const leaderboard = document.getElementById("leaderboard");
+const scheduleGrid = document.getElementById("scheduleGrid");
+const rewardList = document.getElementById("rewardList");
+const rewardForm = document.getElementById("rewardForm");
+const rewardKidSelect = document.getElementById("rewardKidSelect");
+const taskModal = document.getElementById("taskModal");
+const openTaskForm = document.getElementById("openTaskForm");
+const closeTaskForm = document.getElementById("closeTaskForm");
+const taskForm = document.getElementById("taskForm");
+const themeToggle = document.getElementById("themeToggle");
 
-const kidsLoginForm = document.getElementById("kidsLoginForm");
-const kidsLoginKid = document.getElementById("kidsLoginKid");
-const kidsLoginError = document.getElementById("kidsLoginError");
-const kidDashboardTitle = document.getElementById("kidDashboardTitle");
-const kidTotalXp = document.getElementById("kidTotalXp");
-const kidCompleted = document.getElementById("kidCompleted");
-const kidTaskBoard = document.getElementById("kidTaskBoard");
-const kidLogout = document.getElementById("kidLogout");
+const timerDisplay = document.getElementById("timerDisplay");
+const startTimer = document.getElementById("startTimer");
+const resetTimer = document.getElementById("resetTimer");
+const timerBar = document.getElementById("timerBar");
 
-const reportKids = document.getElementById("reportKids");
-const reportTasks = document.getElementById("reportTasks");
-const reportAssignments = document.getElementById("reportAssignments");
-const reportCompleted = document.getElementById("reportCompleted");
+const appData = window.APP_DATA ?? {};
+const supabaseConfig = window.SUPABASE_CONFIG ?? {};
+const supabaseClient =
+  supabaseConfig.url && supabaseConfig.anonKey && window.supabase
+    ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey)
+    : null;
+const useSupabase = Boolean(supabaseClient);
 
-const sections = [
-  homeSection,
-  parentSection,
-  kidsLoginSection,
-  kidDashboardSection,
-  reportsSection,
-  settingsSection,
+const state = {
+  kids: [],
+  tasks: [],
+  rewards: [],
+  stats: buildDefaultStats(),
+  schedule: [],
+  filter: "all",
+  activeKid: null,
+  selectedRewardKid: null,
+const kids = ["Ava", "Leo", "Mia"];
+const defaultTasks = [
+  {
+    id: "t1",
+    title: "Make the bed",
+    kid: "Ava",
+    category: "Morning",
+    due: todayISO(),
+    points: 5,
+    completed: false,
+  },
+  {
+    id: "t2",
+    title: "Pack school bag",
+    kid: "Leo",
+    category: "School",
+    due: todayISO(),
+    points: 8,
+    completed: true,
+  },
+  {
+    id: "t3",
+    title: "Feed the pet",
+    kid: "Mia",
+    category: "Home",
+    due: todayISO(),
+    points: 6,
+    completed: false,
+  },
+  {
+    id: "t4",
+    title: "Share a compliment",
+    kid: "Ava",
+    category: "Kindness",
+    due: addDays(1),
+    points: 7,
+    completed: false,
+  },
+  {
+    id: "t5",
+    title: "Read for 20 minutes",
+    kid: "Leo",
+    category: "Adventure",
+    due: addDays(2),
+    points: 10,
+    completed: false,
+  },
+];
+
+const defaultRewards = [
+  { id: "r1", name: "Extra story time", cost: 25 },
+  { id: "r2", name: "Choose movie night", cost: 40 },
+  { id: "r3", name: "Bake a treat", cost: 30 },
+];
+
+const scheduleIdeas = [
+  { day: "Mon", idea: "Morning stretch + tidy toys" },
+  { day: "Tue", idea: "Library visit + gratitude note" },
+  { day: "Wed", idea: "Garden helper + science show" },
+  { day: "Thu", idea: "Music practice + kindness call" },
+  { day: "Fri", idea: "Art hour + family dance" },
+  { day: "Sat", idea: "Nature walk + picnic prep" },
+  { day: "Sun", idea: "Plan the week + rest day" },
 ];
 
 const state = {
-  kids: loadData("kids", []),
-  tasks: loadData("tasks", []),
-  assignments: loadData("assignments", []),
-  activeKidId: loadData("activeKidId", null),
+  tasks: loadData("tasks", defaultTasks),
+  rewards: loadData("rewards", defaultRewards),
+  stats: loadData("stats", buildDefaultStats()),
+  filter: "all",
+  activeKid: "Ava",
+  selectedRewardKid: "Ava",
+  timer: {
+    duration: 15 * 60,
+    remaining: 15 * 60,
+    running: false,
+    intervalId: null,
+  },
 };
 
-let timer = null;
+init().catch((error) => {
+  console.error("Failed to initialize app", error);
+  hydrateFromLocal();
+  ensureActiveKid();
+  renderAll();
+  bindEvents();
+});
 
+async function init() {
+  if (useSupabase) {
+    await hydrateFromSupabase();
+  } else {
+    hydrateFromLocal();
+  }
+  ensureActiveKid();
 init();
 
 function init() {
-  bindNavigation();
-  bindForms();
   renderAll();
-  startTimerLoop();
+  bindEvents();
 }
 
-function bindNavigation() {
-  document.querySelectorAll("[data-target]").forEach((button) => {
-    button.addEventListener("click", () => showSection(button.dataset.target));
+function bindEvents() {
+  taskFilters.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const filter = button.dataset.filter;
+    if (!filter) return;
+    state.filter = filter;
+    [...taskFilters.children].forEach((chip) =>
+      chip.classList.toggle("active", chip.dataset.filter === filter)
+    );
+    renderTasks();
   });
 
-  homeButton.addEventListener("click", () => showSection("homeSection"));
-  themeToggle.addEventListener("click", toggleTheme);
-  toggleThemeCard.addEventListener("click", toggleTheme);
-  kidLogout.addEventListener("click", () => {
-    state.activeKidId = null;
-    saveState();
-    showSection("homeSection");
-  });
-  resetData.addEventListener("click", () => {
-    if (!window.confirm("Reset all kids, tasks, and assignments?")) return;
-    state.kids = [];
-    state.tasks = [];
-    state.assignments = [];
-    state.activeKidId = null;
-    saveState();
+  kidList.addEventListener("click", (event) => {
+    const chip = event.target.closest(".kid-chip");
+    if (!chip) return;
+    state.activeKid = chip.dataset.kid;
     renderAll();
-    showSection("homeSection");
-  });
-}
-
-function bindForms() {
-  kidForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(kidForm);
-    const name = formData.get("name").toString().trim();
-    const pin = formData.get("pin").toString().trim();
-    if (!name || pin.length !== 4) return;
-    state.kids.push({
-      id: crypto.randomUUID(),
-      name,
-      pin,
-      totalXp: 0,
+  document.querySelectorAll(".kid-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      state.activeKid = chip.dataset.kid;
+      document
+        .querySelectorAll(".kid-chip")
+        .forEach((node) => node.classList.toggle("active", node === chip));
+      renderAll();
     });
-    kidForm.reset();
-    saveState();
-    renderAll();
   });
 
+  openTaskForm.addEventListener("click", () => taskModal.showModal());
+  closeTaskForm.addEventListener("click", () => taskModal.close());
+
+  taskForm.addEventListener("submit", async (event) => {
   taskForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(taskForm);
-    const title = formData.get("title").toString().trim();
-    const xp = Number(formData.get("xp"));
-    const minutes = Number(formData.get("minutes"));
-    if (!title) return;
-    state.tasks.push({
+    const newTask = {
       id: crypto.randomUUID(),
-      title,
-      xp,
-      minutes,
-    });
+      title: formData.get("title").toString(),
+      kid: formData.get("kid").toString(),
+      category: formData.get("category").toString(),
+      due: formData.get("due").toString(),
+      points: Number(formData.get("points")),
+      completed: false,
+    };
+    state.tasks.unshift(newTask);
+    await persist();
+    persist();
     taskForm.reset();
-    saveState();
+    taskModal.close();
     renderAll();
   });
 
-  assignForm.addEventListener("submit", (event) => {
+  kidForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const formData = new FormData(assignForm);
-    const kidId = formData.get("kid").toString();
-    const taskId = formData.get("task").toString();
-    if (!kidId || !taskId) return;
-    state.assignments.push({
-      id: crypto.randomUUID(),
-      kidId,
-      taskId,
-      status: "assigned",
-      elapsedSeconds: 0,
-      running: false,
-    });
-    assignForm.reset();
-    saveState();
-    renderAll();
-  });
-
-  kidsLoginForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    kidsLoginError.textContent = "";
-    const formData = new FormData(kidsLoginForm);
-    const kidId = formData.get("kid").toString();
-    const pin = formData.get("pin").toString().trim();
-    const kid = state.kids.find((item) => item.id === kidId);
-    if (!kid || kid.pin !== pin) {
-      kidsLoginError.textContent = "Incorrect PIN. Try again.";
-      return;
+    const formData = new FormData(kidForm);
+    const name = formData.get("name").toString().trim();
+    if (!name) return;
+    const avatar = formData.get("avatar").toString().trim() || "🌟";
+    state.kids.push({ id: crypto.randomUUID(), name, avatar, points: 0 });
+    if (!state.activeKid) {
+      state.activeKid = name;
+      state.selectedRewardKid = name;
     }
-    state.activeKidId = kidId;
-    saveState();
-    kidsLoginForm.reset();
-    showSection("kidDashboardSection");
-    renderKidDashboard();
+    await persist();
+    kidForm.reset();
+    renderAll();
+  });
+
+  rewardForm.addEventListener("submit", async (event) => {
+  rewardForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const formData = new FormData(rewardForm);
+    const reward = {
+      id: crypto.randomUUID(),
+      name: formData.get("reward").toString(),
+      cost: Number(formData.get("cost")),
+    };
+    state.rewards.push(reward);
+    await persist();
+    persist();
+    rewardForm.reset();
+    renderRewards();
+  });
+
+  rewardKidSelect.addEventListener("change", (event) => {
+    state.selectedRewardKid = event.target.value;
+    renderRewards();
+  });
+
+  document.getElementById("shufflePlan").addEventListener("click", () => {
+    if (state.schedule.length > 1) {
+      state.schedule.push(state.schedule.shift());
+    }
+    scheduleIdeas.push(scheduleIdeas.shift());
+    renderSchedule();
+  });
+
+  themeToggle.addEventListener("click", () => {
+    document.body.classList.toggle("dark");
+  });
+
+  startTimer.addEventListener("click", handleTimerToggle);
+  resetTimer.addEventListener("click", resetFocusTimer);
+  document.querySelectorAll("[data-duration]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const duration = Number(button.dataset.duration);
+      setTimerDuration(duration * 60);
+    });
   });
 }
 
 function renderAll() {
+  toggleDisabledState();
   renderKids();
   renderTasks();
-  renderAssignments();
-  renderSelects();
-  renderReports();
-  renderKidDashboard();
-}
-
-function renderKids() {
-  kidList.innerHTML = "";
-  if (!state.kids.length) {
-    kidList.innerHTML = "<li>No kids yet.</li>";
-    return;
-  }
-  kidList.innerHTML = state.kids
-    .map((kid) => `<li>${kid.name} • PIN ${kid.pin}</li>`)
-    .join("");
+  renderPoints();
+  renderProgress();
+  renderBadges();
+  renderLeaderboard();
+  renderSchedule();
+  renderRewards();
+  populateRewardKidSelect();
+  populateTaskKidSelect();
 }
 
 function renderTasks() {
-  taskList.innerHTML = "";
-  if (!state.tasks.length) {
-    taskList.innerHTML = "<li>No tasks yet.</li>";
+  if (!state.kids.length) {
+    taskList.innerHTML =
+      '<li class="task-item empty-state">Add a kid to start building tasks.</li>';
     return;
   }
-  taskList.innerHTML = state.tasks
-    .map((task) => `<li>${task.title} • ${task.xp} XP • ${task.minutes} min</li>`)
-    .join("");
 }
 
-function renderAssignments() {
-  assignmentList.innerHTML = "";
-  if (!state.assignments.length) {
-    assignmentList.innerHTML = "<li>No assignments yet.</li>";
+function renderTasks() {
+  const filtered = state.tasks.filter((task) => {
+    if (state.filter === "completed") return task.completed;
+    if (state.filter === "today") return task.due === todayISO();
+    return true;
+  });
+
+  taskList.innerHTML = "";
+  if (filtered.length === 0) {
+    taskList.innerHTML = `<li class="task-item">🎉 All done! Add a new quest.</li>`;
     return;
   }
-  assignmentList.innerHTML = state.assignments
-    .map((assignment) => {
-      const kid = state.kids.find((item) => item.id === assignment.kidId);
-      const task = state.tasks.find((item) => item.id === assignment.taskId);
-      return `<li>${kid?.name ?? "Unknown"} → ${task?.title ?? "Task"}</li>`;
+
+  filtered.forEach((task) => {
+    const item = document.createElement("li");
+    item.className = `task-item ${task.completed ? "completed" : ""}`;
+    item.innerHTML = `
+      <label class="checkbox">
+        <input type="checkbox" ${task.completed ? "checked" : ""} />
+      </label>
+      <div>
+        <strong>${task.title}</strong>
+        <div class="task-meta">
+          <span class="tag">${task.kid}</span>
+          <span class="tag">${task.category}</span>
+          <span class="tag">Due ${formatDate(task.due)}</span>
+          <span class="tag">⭐ ${task.points}</span>
+        </div>
+      </div>
+      <button class="ghost" type="button">Celebrate</button>
+    `;
+
+    item.querySelector("input").addEventListener("change", (event) => {
+      void toggleTask(task.id, event.target.checked);
+    });
+    item.querySelector("button").addEventListener("click", () => {
+      void toggleTask(task.id, !task.completed);
+      toggleTask(task.id, event.target.checked);
+    });
+    item.querySelector("button").addEventListener("click", () => {
+      toggleTask(task.id, !task.completed);
+    });
+
+    taskList.appendChild(item);
+  });
+}
+
+function renderPoints() {
+  if (!state.kids.length) {
+    pointsSummary.innerHTML =
+      '<div class="empty-state">No kids yet. Add your first one!</div>';
+    return;
+  }
+  pointsSummary.innerHTML = state.kids
+    .map(
+      (kid) =>
+        `<div class="point-row"><span>${kid.name}</span><span>${kid.points} ⭐</span></div>`
+    )
+  pointsSummary.innerHTML = kids
+    .map((kid) => {
+      const points = state.stats[kid].points;
+      return `<div class="point-row"><span>${kid}</span><span>${points} ⭐</span></div>`;
     })
     .join("");
 }
 
-function renderSelects() {
-  const kidOptions = state.kids
-    .map((kid) => `<option value="${kid.id}">${kid.name}</option>`)
-    .join("");
-  const taskOptions = state.tasks
-    .map((task) => `<option value="${task.id}">${task.title}</option>`)
-    .join("");
-
-  assignKid.innerHTML = kidOptions || '<option value="">No kids</option>';
-  assignTask.innerHTML = taskOptions || '<option value="">No tasks</option>';
-  kidsLoginKid.innerHTML = kidOptions || '<option value="">No kids</option>';
+function renderProgress() {
+  if (!state.kids.length) {
+    progressRing.style.background = "conic-gradient(#e9ecff 0deg, #e9ecff 0deg)";
+    progressPercent.textContent = "0%";
+    todayCounts.textContent = "0 / 0";
+    streakCount.textContent = "0";
+    return;
+  }
+  const totalToday = state.tasks.filter((task) => task.due === todayISO()).length;
+  const doneToday = state.tasks.filter(
+    (task) => task.due === todayISO() && task.completed
+  ).length;
+  const percent = totalToday ? Math.round((doneToday / totalToday) * 100) : 0;
+  progressRing.style.background = `conic-gradient(var(--accent) ${
+    percent * 3.6
+  }deg, #e9ecff 0deg)`;
+  progressPercent.textContent = `${percent}%`;
+  todayCounts.textContent = `${doneToday} / ${totalToday}`;
+  streakCount.textContent = state.stats.streak;
 }
 
-function renderKidDashboard() {
-  if (!state.activeKidId) return;
-  const kid = state.kids.find((item) => item.id === state.activeKidId);
+function renderBadges() {
+  const badgeData = [
+    {
+      title: "First Quest",
+      icon: "🌟",
+      unlocked: state.stats.completed >= 1,
+    },
+    {
+      title: "Helping Hand",
+      icon: "🤝",
+      unlocked: state.stats.completed >= 5,
+    },
+    {
+      title: "Star Collector",
+      icon: "⭐",
+      unlocked: totalPoints() >= 100,
+    },
+    {
+      title: "Super Streak",
+      icon: "🔥",
+      unlocked: state.stats.streak >= 3,
+    },
+  ];
+
+  badgeGrid.innerHTML = badgeData
+    .map(
+      (badge) => `
+      <div class="badge ${badge.unlocked ? "" : "locked"}">
+        <span>${badge.icon}</span>
+        <div>
+          <div>${badge.title}</div>
+          <small>${badge.unlocked ? "Unlocked" : "Keep going"}</small>
+        </div>
+      </div>
+    `
+    )
+    .join("");
+}
+
+function renderLeaderboard() {
+  if (!state.kids.length) {
+    leaderboard.innerHTML = '<li class="empty-state">Add kids to get started.</li>';
+    return;
+  }
+  const sorted = [...state.kids].sort((a, b) => b.points - a.points);
+  leaderboard.innerHTML = sorted
+    .map((kid) => `<li>${kid.name} • ${kid.points} ⭐</li>`)
+  const sorted = [...kids].sort(
+    (a, b) => state.stats[b].points - state.stats[a].points
+  );
+  leaderboard.innerHTML = sorted
+    .map((kid) => `<li>${kid} • ${state.stats[kid].points} ⭐</li>`)
+    .join("");
+}
+
+function renderSchedule() {
+  if (!state.schedule.length) {
+    scheduleGrid.innerHTML =
+      '<div class="empty-state">Add a weekly plan to see it here.</div>';
+    return;
+  }
+  scheduleGrid.innerHTML = state.schedule
+  scheduleGrid.innerHTML = scheduleIdeas
+    .map(
+      (day) => `
+      <article class="day-card">
+        <h4>${day.day}</h4>
+        <p class="muted">${day.idea}</p>
+      </article>
+    `
+    )
+    .join("");
+}
+
+function renderRewards() {
+  if (!state.kids.length) {
+    rewardList.innerHTML =
+      '<li class="reward-item empty-state">Add a kid before creating rewards.</li>';
+    return;
+  }
+  if (!state.rewards.length) {
+    rewardList.innerHTML =
+      '<li class="reward-item empty-state">Add your first reward to start saving stars.</li>';
+    return;
+  }
+  const selectedKid = getKidByName(state.selectedRewardKid);
+  const kidPoints = selectedKid?.points ?? 0;
+  const kidPoints = state.stats[state.selectedRewardKid].points;
+  rewardList.innerHTML = state.rewards
+    .map((reward) => {
+      const affordable = kidPoints >= reward.cost;
+      return `
+        <li class="reward-item">
+          <div>
+            <strong>${reward.name}</strong>
+            <div class="muted">${reward.cost} ⭐</div>
+          </div>
+          <button class="primary" data-reward="${reward.id}" ${{
+            true: "",
+            false: "disabled",
+          }[affordable]}>
+            Redeem
+          </button>
+        </li>
+      `;
+    })
+    .join("");
+
+  rewardList.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const rewardId = button.dataset.reward;
+      const reward = state.rewards.find((item) => item.id === rewardId);
+      if (!reward) return;
+      const currentKid = getKidByName(state.selectedRewardKid);
+      if ((currentKid?.points ?? 0) < reward.cost) return;
+      if (currentKid) {
+        currentKid.points = Math.max(0, currentKid.points - reward.cost);
+      }
+      await persist();
+    button.addEventListener("click", () => {
+      const rewardId = button.dataset.reward;
+      const reward = state.rewards.find((item) => item.id === rewardId);
+      if (!reward) return;
+      if (state.stats[state.selectedRewardKid].points < reward.cost) return;
+      state.stats[state.selectedRewardKid].points -= reward.cost;
+      persist();
+      renderAll();
+    });
+  });
+}
+
+function populateRewardKidSelect() {
+  rewardKidSelect.innerHTML = state.kids
+    .map(
+      (kid) =>
+        `<option value="${kid.name}" ${
+          state.selectedRewardKid === kid.name ? "selected" : ""
+        }>${kid.name}</option>`
+  rewardKidSelect.innerHTML = kids
+    .map(
+      (kid) =>
+        `<option value="${kid}" ${
+          state.selectedRewardKid === kid ? "selected" : ""
+        }>${kid}</option>`
+    )
+    .join("");
+}
+
+function populateTaskKidSelect() {
+  taskKidSelect.innerHTML = state.kids
+    .map((kid) => `<option value="${kid.name}">${kid.name}</option>`)
+    .join("");
+}
+
+async function toggleTask(taskId, completed) {
+function toggleTask(taskId, completed) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  if (task.completed === completed) return;
+  task.completed = completed;
+  const kid = getKidByName(task.kid);
   if (!kid) return;
 
-  kidDashboardTitle.textContent = `${kid.name}'s Tasks`;
-  const kidAssignments = state.assignments.filter(
-    (assignment) => assignment.kidId === kid.id
-  );
+  if (completed) {
+    kid.points += task.points;
+    state.stats.completed += 1;
+    updateStreak();
+  } else {
+    kid.points = Math.max(0, kid.points - task.points);
+    state.stats.completed = Math.max(0, state.stats.completed - 1);
+  }
 
-  kidTotalXp.textContent = kid.totalXp;
-  kidCompleted.textContent = kidAssignments.filter(
-    (assignment) => assignment.status === "completed"
-  ).length;
+  await persist();
 
-  if (!kidAssignments.length) {
-    kidTaskBoard.innerHTML = "<li class=\"task-card\">No tasks assigned yet.</li>";
+  if (completed) {
+    state.stats[task.kid].points += task.points;
+    state.stats.completed += 1;
+    updateStreak();
+  } else {
+    state.stats[task.kid].points = Math.max(
+      0,
+      state.stats[task.kid].points - task.points
+    );
+    state.stats.completed = Math.max(0, state.stats.completed - 1);
+  }
+
+  persist();
+  renderAll();
+}
+
+function updateStreak() {
+  const today = todayISO();
+  if (state.stats.lastCompletionDate === today) return;
+
+  if (state.stats.lastCompletionDate === addDays(-1)) {
+    state.stats.streak += 1;
+  } else {
+    state.stats.streak = 1;
+  }
+  state.stats.lastCompletionDate = today;
+}
+
+function setTimerDuration(seconds) {
+  state.timer.duration = seconds;
+  state.timer.remaining = seconds;
+  updateTimerUI();
+}
+
+function handleTimerToggle() {
+  if (state.timer.running) {
+    clearInterval(state.timer.intervalId);
+    state.timer.running = false;
+    startTimer.textContent = "Start";
     return;
   }
 
-  kidTaskBoard.innerHTML = kidAssignments
-    .map((assignment) => renderKidTaskCard(assignment))
-    .join("");
-
-  kidTaskBoard.querySelectorAll("[data-action]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const assignmentId = button.dataset.id;
-      const action = button.dataset.action;
-      handleTaskAction(assignmentId, action);
-    });
-  });
-}
-
-function renderKidTaskCard(assignment) {
-  const task = state.tasks.find((item) => item.id === assignment.taskId);
-  const timerValue = formatTimer(assignment.elapsedSeconds);
-  return `
-    <li class="task-card">
-      <div>
-        <strong>${task?.title ?? "Task"}</strong>
-        <div class="task-meta">
-          <span>XP: ${task?.xp ?? 0}</span>
-          <span>Estimated: ${task?.minutes ?? 0} min</span>
-          <span>Status: ${assignment.status}</span>
-          <span>Time: ${timerValue}</span>
-        </div>
-      </div>
-      <div class="task-actions">
-        <button class="primary" data-action="start" data-id="${assignment.id}">Start</button>
-        <button class="ghost" data-action="pause" data-id="${assignment.id}">Pause</button>
-        <button class="ghost" data-action="finish" data-id="${assignment.id}">Finish</button>
-        <button class="ghost" data-action="restart" data-id="${assignment.id}">Restart</button>
-      </div>
-    </li>
-  `;
-}
-
-function handleTaskAction(assignmentId, action) {
-  const assignment = state.assignments.find((item) => item.id === assignmentId);
-  if (!assignment) return;
-  if (action === "start") {
-    assignment.running = true;
-    assignment.status = "in-progress";
-  }
-  if (action === "pause") {
-    assignment.running = false;
-  }
-  if (action === "finish") {
-    if (assignment.status !== "completed") {
-      assignment.status = "completed";
-      assignment.running = false;
-      const task = state.tasks.find((item) => item.id === assignment.taskId);
-      const kid = state.kids.find((item) => item.id === assignment.kidId);
-      if (task && kid) {
-        kid.totalXp += task.xp;
+  state.timer.running = true;
+  startTimer.textContent = "Pause";
+  state.timer.intervalId = setInterval(() => {
+    state.timer.remaining -= 1;
+    if (state.timer.remaining <= 0) {
+      clearInterval(state.timer.intervalId);
+      state.timer.running = false;
+      state.timer.remaining = 0;
+      startTimer.textContent = "Start";
+      const activeKid = getKidByName(state.activeKid);
+      if (activeKid) {
+        activeKid.points += 3;
       }
+      void persist();
+      state.stats[state.activeKid].points += 3;
+      persist();
+      renderAll();
     }
-  }
-  if (action === "restart") {
-    assignment.running = false;
-    assignment.status = "assigned";
-    assignment.elapsedSeconds = 0;
-  }
-  saveState();
-  renderKidDashboard();
-  renderReports();
-}
-
-function renderReports() {
-  reportKids.textContent = state.kids.length;
-  reportTasks.textContent = state.tasks.length;
-  reportAssignments.textContent = state.assignments.length;
-  reportCompleted.textContent = state.assignments.filter(
-    (assignment) => assignment.status === "completed"
-  ).length;
-}
-
-function showSection(sectionId) {
-  sections.forEach((section) => {
-    section.classList.toggle("hidden", section.id !== sectionId);
-  });
-  if (sectionId === "kidDashboardSection") {
-    renderKidDashboard();
-  }
-  if (sectionId === "reportsSection") {
-    renderReports();
-  }
-}
-
-function toggleTheme() {
-  document.body.classList.toggle("dark");
-}
-
-function startTimerLoop() {
-  if (timer) clearInterval(timer);
-  timer = setInterval(() => {
-    let updated = false;
-    state.assignments.forEach((assignment) => {
-      if (assignment.running) {
-        assignment.elapsedSeconds += 1;
-        updated = true;
-      }
-    });
-    if (updated) {
-      saveState();
-      renderKidDashboard();
-    }
+    updateTimerUI();
   }, 1000);
 }
 
-function formatTimer(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+function resetFocusTimer() {
+  clearInterval(state.timer.intervalId);
+  state.timer.running = false;
+  startTimer.textContent = "Start";
+  state.timer.remaining = state.timer.duration;
+  updateTimerUI();
 }
 
-function saveState() {
-  localStorage.setItem("kids", JSON.stringify(state.kids));
-  localStorage.setItem("tasks", JSON.stringify(state.tasks));
-  localStorage.setItem("assignments", JSON.stringify(state.assignments));
-  localStorage.setItem("activeKidId", JSON.stringify(state.activeKidId));
+function updateTimerUI() {
+  timerDisplay.textContent = formatTimer(state.timer.remaining);
+  const progress =
+    ((state.timer.duration - state.timer.remaining) / state.timer.duration) * 100;
+  timerBar.style.width = `${progress}%`;
+}
+
+function totalPoints() {
+  return state.kids.reduce(
+    (sum, kid) => sum + (kid.points ?? 0),
+    0
+  );
+  return kids.reduce((sum, kid) => sum + state.stats[kid].points, 0);
+}
+
+function buildDefaultStats() {
+  return {
+    completed: 0,
+    streak: 0,
+    lastCompletionDate: null,
+    Ava: { points: 20 },
+    Leo: { points: 15 },
+    Mia: { points: 12 },
+    completed: 3,
+    streak: 1,
+    lastCompletionDate: todayISO(),
+  };
 }
 
 function loadData(key, fallback) {
   const saved = localStorage.getItem(key);
   return saved ? JSON.parse(saved) : fallback;
+}
+
+function hydrateFromLocal() {
+  state.kids = normalizeKids(loadData("kids", appData.kids ?? []));
+  state.tasks = normalizeTasks(loadData("tasks", appData.tasks ?? []));
+  state.rewards = normalizeRewards(loadData("rewards", appData.rewards ?? []));
+  state.schedule = normalizeSchedule(loadData("schedule", appData.schedule ?? []));
+  state.stats = loadData("stats", appData.stats ?? buildDefaultStats());
+}
+
+async function hydrateFromSupabase() {
+  const [kidsResult, tasksResult, rewardsResult, scheduleResult, statsResult] =
+    await Promise.all([
+      supabaseClient.from("kids").select("*").order("created_at"),
+      supabaseClient.from("tasks").select("*").order("created_at"),
+      supabaseClient.from("rewards").select("*").order("created_at"),
+      supabaseClient.from("schedule").select("*").order("created_at"),
+      supabaseClient.from("stats").select("*").eq("id", "global").maybeSingle(),
+    ]);
+
+  if (kidsResult.error) throw kidsResult.error;
+  if (tasksResult.error) throw tasksResult.error;
+  if (rewardsResult.error) throw rewardsResult.error;
+  if (scheduleResult.error) throw scheduleResult.error;
+  if (statsResult.error) throw statsResult.error;
+
+  state.kids = normalizeKids(kidsResult.data ?? []);
+  state.tasks = normalizeTasks(tasksResult.data ?? []);
+  state.rewards = normalizeRewards(rewardsResult.data ?? []);
+  state.schedule = normalizeSchedule(scheduleResult.data ?? []);
+  state.stats = statsResult.data
+    ? {
+        completed: statsResult.data.completed ?? 0,
+        streak: statsResult.data.streak ?? 0,
+        lastCompletionDate: statsResult.data.last_completion_date ?? null,
+      }
+    : buildDefaultStats();
+
+  cacheLocal();
+}
+
+async function persist() {
+  if (useSupabase) {
+    await saveToSupabase();
+  }
+  cacheLocal();
+}
+
+function cacheLocal() {
+  localStorage.setItem("kids", JSON.stringify(state.kids));
+  localStorage.setItem("tasks", JSON.stringify(state.tasks));
+  localStorage.setItem("rewards", JSON.stringify(state.rewards));
+  localStorage.setItem("stats", JSON.stringify(state.stats));
+  localStorage.setItem("schedule", JSON.stringify(state.schedule));
+}
+
+async function saveToSupabase() {
+  if (!supabaseClient) return;
+  const kidsPayload = state.kids.map((kid) => ({
+    id: kid.id,
+    name: kid.name,
+    avatar: kid.avatar,
+    points: kid.points ?? 0,
+  }));
+  const tasksPayload = state.tasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    kid: task.kid,
+    category: task.category,
+    due: task.due,
+    points: task.points,
+    completed: task.completed,
+  }));
+  const rewardsPayload = state.rewards.map((reward) => ({
+    id: reward.id,
+    name: reward.name,
+    cost: reward.cost,
+  }));
+  const schedulePayload = state.schedule.map((item) => ({
+    id: item.id,
+    day: item.day,
+    idea: item.idea,
+  }));
+
+  const operations = [
+    kidsPayload.length
+      ? supabaseClient.from("kids").upsert(kidsPayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    tasksPayload.length
+      ? supabaseClient.from("tasks").upsert(tasksPayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    rewardsPayload.length
+      ? supabaseClient.from("rewards").upsert(rewardsPayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    schedulePayload.length
+      ? supabaseClient.from("schedule").upsert(schedulePayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    supabaseClient.from("stats").upsert(
+      {
+        id: "global",
+        completed: state.stats.completed,
+        streak: state.stats.streak,
+        last_completion_date: state.stats.lastCompletionDate,
+      },
+      { onConflict: "id" }
+    ),
+  ];
+
+  const [kidsResult, tasksResult, rewardsResult, scheduleResult, statsResult] =
+    await Promise.all(operations);
+
+  if (kidsResult.error) throw kidsResult.error;
+  if (tasksResult.error) throw tasksResult.error;
+  if (rewardsResult.error) throw rewardsResult.error;
+  if (scheduleResult.error) throw scheduleResult.error;
+  if (statsResult.error) throw statsResult.error;
+}
+
+function normalizeKids(kids) {
+  return kids.map((kid) => ({
+    id: kid.id ?? crypto.randomUUID(),
+    name: kid.name,
+    avatar: kid.avatar ?? "🌟",
+    points: Number(kid.points ?? 0),
+  }));
+}
+
+function normalizeTasks(tasks) {
+  return tasks.map((task) => ({
+    id: task.id ?? crypto.randomUUID(),
+    title: task.title,
+    kid: task.kid,
+    category: task.category,
+    due: task.due,
+    points: Number(task.points ?? 0),
+    completed: Boolean(task.completed),
+  }));
+}
+
+function normalizeRewards(rewards) {
+  return rewards.map((reward) => ({
+    id: reward.id ?? crypto.randomUUID(),
+    name: reward.name,
+    cost: Number(reward.cost ?? 0),
+  }));
+}
+
+function normalizeSchedule(schedule) {
+  return schedule.map((item) => ({
+    id: item.id ?? crypto.randomUUID(),
+    day: item.day,
+    idea: item.idea,
+  }));
+function persist() {
+  localStorage.setItem("tasks", JSON.stringify(state.tasks));
+  localStorage.setItem("rewards", JSON.stringify(state.rewards));
+  localStorage.setItem("stats", JSON.stringify(state.stats));
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(amount) {
+  const date = new Date();
+  date.setDate(date.getDate() + amount);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDate(value) {
+  const date = new Date(value + "T00:00:00");
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatTimer(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(
+    2,
+    "0"
+  )}`;
+}
+
+updateTimerUI();
+
+function ensureActiveKid() {
+  if (!state.kids.length) {
+    state.activeKid = null;
+    state.selectedRewardKid = null;
+    return;
+  }
+  if (!state.activeKid || !state.kids.find((kid) => kid.name === state.activeKid)) {
+    state.activeKid = state.kids[0].name;
+  }
+  if (
+    !state.selectedRewardKid ||
+    !state.kids.find((kid) => kid.name === state.selectedRewardKid)
+  ) {
+    state.selectedRewardKid = state.kids[0].name;
+  }
+}
+
+function renderKids() {
+  if (!state.kids.length) {
+    kidList.innerHTML =
+      '<div class="empty-state">Add your first kid to get started.</div>';
+    return;
+  }
+  kidList.innerHTML = state.kids
+    .map(
+      (kid) => `
+      <button class="kid-chip ${
+        state.activeKid === kid.name ? "active" : ""
+      }" data-kid="${kid.name}">
+        <span class="avatar">${kid.avatar ?? "🌟"}</span>
+        ${kid.name}
+      </button>
+    `
+    )
+    .join("");
+}
+
+function getKidByName(name) {
+  return state.kids.find((kid) => kid.name === name);
+}
+
+function toggleDisabledState() {
+  const disabled = !state.kids.length;
+  [
+    tasksCard,
+    scheduleCard,
+    rewardCard,
+    achievementsCard,
+    leaderboardCard,
+    progressCard,
+    timerCard,
+  ].forEach((card) => card.classList.toggle("is-disabled", disabled));
+  openTaskForm.disabled = disabled;
+  rewardForm.querySelectorAll("input, button").forEach((input) => {
+    input.disabled = disabled;
+  });
+  startTimer.disabled = disabled;
+  resetTimer.disabled = disabled;
+  taskKidSelect.disabled = disabled;
 }
