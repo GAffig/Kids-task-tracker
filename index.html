@@ -32,6 +32,16 @@
         <aside class="sidebar">
           <section class="card profile-card">
             <h2>Family Spotlight</h2>
+            <div class="kids" id="kidList"></div>
+            <div class="points-summary" id="pointsSummary"></div>
+            <form class="kid-form" id="kidForm">
+              <input type="text" name="name" placeholder="Kid name" required />
+              <input type="text" name="avatar" placeholder="Emoji" maxlength="2" />
+              <button class="primary" type="submit">Add Kid</button>
+            </form>
+          </section>
+
+          <section class="card" id="progressCard">
             <div class="kids">
               <button class="kid-chip active" data-kid="Ava">
                 <span class="avatar">🦄</span>
@@ -63,6 +73,7 @@
             </div>
           </section>
 
+          <section class="card focus-card" id="timerCard">
           <section class="card focus-card">
             <h2>Focus Timer</h2>
             <p class="muted">Pick a time and earn a bonus star!</p>
@@ -80,6 +91,7 @@
         </aside>
 
         <section class="main-panel">
+          <section class="card" id="tasksCard">
           <section class="card">
             <div class="card-header">
               <div>
@@ -95,6 +107,7 @@
             <ul class="task-list" id="taskList"></ul>
           </section>
 
+          <section class="card" id="scheduleCard">
           <section class="card">
             <div class="card-header">
               <div>
@@ -108,6 +121,7 @@
         </section>
 
         <aside class="side-panel">
+          <section class="card reward-card" id="rewardCard">
           <section class="card reward-card">
             <div class="card-header">
               <div>
@@ -124,11 +138,13 @@
             </form>
           </section>
 
+          <section class="card" id="achievementsCard">
           <section class="card">
             <h2>Achievements</h2>
             <div class="badge-grid" id="badgeGrid"></div>
           </section>
 
+          <section class="card" id="leaderboardCard">
           <section class="card">
             <h2>Family Leaderboard</h2>
             <ol class="leaderboard" id="leaderboard"></ol>
@@ -146,6 +162,7 @@
         </label>
         <label>
           Assign to
+          <select name="kid" id="taskKidSelect" required></select>
           <select name="kid" required>
             <option value="Ava">Ava</option>
             <option value="Leo">Leo</option>
@@ -177,6 +194,14 @@
       </form>
     </dialog>
 
+    <script>
+      window.SUPABASE_CONFIG = {
+        url: "https://fezhzrdjyrzlsggvpkys.supabase.co",
+        anonKey:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZlemh6cmRqeXJ6bHNnZ3Zwa3lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1MDg5ODQsImV4cCI6MjA4NjA4NDk4NH0.V87bPw5HIwlYnDp2AyAbUcNJifIGsiU7OHA3GL9b0BQ",
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
   </body>
 </html>

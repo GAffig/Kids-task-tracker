@@ -1,6 +1,16 @@
 const taskList = document.getElementById("taskList");
 const taskFilters = document.getElementById("taskFilters");
 const pointsSummary = document.getElementById("pointsSummary");
+const kidList = document.getElementById("kidList");
+const kidForm = document.getElementById("kidForm");
+const taskKidSelect = document.getElementById("taskKidSelect");
+const tasksCard = document.getElementById("tasksCard");
+const scheduleCard = document.getElementById("scheduleCard");
+const rewardCard = document.getElementById("rewardCard");
+const achievementsCard = document.getElementById("achievementsCard");
+const leaderboardCard = document.getElementById("leaderboardCard");
+const progressCard = document.getElementById("progressCard");
+const timerCard = document.getElementById("timerCard");
 const progressRing = document.getElementById("progressRing");
 const progressPercent = document.getElementById("progressPercent");
 const todayCounts = document.getElementById("todayCounts");
@@ -22,6 +32,23 @@ const startTimer = document.getElementById("startTimer");
 const resetTimer = document.getElementById("resetTimer");
 const timerBar = document.getElementById("timerBar");
 
+const appData = window.APP_DATA ?? {};
+const supabaseConfig = window.SUPABASE_CONFIG ?? {};
+const supabaseClient =
+  supabaseConfig.url && supabaseConfig.anonKey && window.supabase
+    ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey)
+    : null;
+const useSupabase = Boolean(supabaseClient);
+
+const state = {
+  kids: [],
+  tasks: [],
+  rewards: [],
+  stats: buildDefaultStats(),
+  schedule: [],
+  filter: "all",
+  activeKid: null,
+  selectedRewardKid: null,
 const kids = ["Ava", "Leo", "Mia"];
 const defaultTasks = [
   {
@@ -102,6 +129,21 @@ const state = {
   },
 };
 
+init().catch((error) => {
+  console.error("Failed to initialize app", error);
+  hydrateFromLocal();
+  ensureActiveKid();
+  renderAll();
+  bindEvents();
+});
+
+async function init() {
+  if (useSupabase) {
+    await hydrateFromSupabase();
+  } else {
+    hydrateFromLocal();
+  }
+  ensureActiveKid();
 init();
 
 function init() {
@@ -122,6 +164,11 @@ function bindEvents() {
     renderTasks();
   });
 
+  kidList.addEventListener("click", (event) => {
+    const chip = event.target.closest(".kid-chip");
+    if (!chip) return;
+    state.activeKid = chip.dataset.kid;
+    renderAll();
   document.querySelectorAll(".kid-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       state.activeKid = chip.dataset.kid;
@@ -135,6 +182,7 @@ function bindEvents() {
   openTaskForm.addEventListener("click", () => taskModal.showModal());
   closeTaskForm.addEventListener("click", () => taskModal.close());
 
+  taskForm.addEventListener("submit", async (event) => {
   taskForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(taskForm);
@@ -148,12 +196,30 @@ function bindEvents() {
       completed: false,
     };
     state.tasks.unshift(newTask);
+    await persist();
     persist();
     taskForm.reset();
     taskModal.close();
     renderAll();
   });
 
+  kidForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(kidForm);
+    const name = formData.get("name").toString().trim();
+    if (!name) return;
+    const avatar = formData.get("avatar").toString().trim() || "🌟";
+    state.kids.push({ id: crypto.randomUUID(), name, avatar, points: 0 });
+    if (!state.activeKid) {
+      state.activeKid = name;
+      state.selectedRewardKid = name;
+    }
+    await persist();
+    kidForm.reset();
+    renderAll();
+  });
+
+  rewardForm.addEventListener("submit", async (event) => {
   rewardForm.addEventListener("submit", (event) => {
     event.preventDefault();
     const formData = new FormData(rewardForm);
@@ -163,6 +229,7 @@ function bindEvents() {
       cost: Number(formData.get("cost")),
     };
     state.rewards.push(reward);
+    await persist();
     persist();
     rewardForm.reset();
     renderRewards();
@@ -174,6 +241,9 @@ function bindEvents() {
   });
 
   document.getElementById("shufflePlan").addEventListener("click", () => {
+    if (state.schedule.length > 1) {
+      state.schedule.push(state.schedule.shift());
+    }
     scheduleIdeas.push(scheduleIdeas.shift());
     renderSchedule();
   });
@@ -193,6 +263,8 @@ function bindEvents() {
 }
 
 function renderAll() {
+  toggleDisabledState();
+  renderKids();
   renderTasks();
   renderPoints();
   renderProgress();
@@ -201,6 +273,15 @@ function renderAll() {
   renderSchedule();
   renderRewards();
   populateRewardKidSelect();
+  populateTaskKidSelect();
+}
+
+function renderTasks() {
+  if (!state.kids.length) {
+    taskList.innerHTML =
+      '<li class="task-item empty-state">Add a kid to start building tasks.</li>';
+    return;
+  }
 }
 
 function renderTasks() {
@@ -236,6 +317,10 @@ function renderTasks() {
     `;
 
     item.querySelector("input").addEventListener("change", (event) => {
+      void toggleTask(task.id, event.target.checked);
+    });
+    item.querySelector("button").addEventListener("click", () => {
+      void toggleTask(task.id, !task.completed);
       toggleTask(task.id, event.target.checked);
     });
     item.querySelector("button").addEventListener("click", () => {
@@ -247,6 +332,16 @@ function renderTasks() {
 }
 
 function renderPoints() {
+  if (!state.kids.length) {
+    pointsSummary.innerHTML =
+      '<div class="empty-state">No kids yet. Add your first one!</div>';
+    return;
+  }
+  pointsSummary.innerHTML = state.kids
+    .map(
+      (kid) =>
+        `<div class="point-row"><span>${kid.name}</span><span>${kid.points} ⭐</span></div>`
+    )
   pointsSummary.innerHTML = kids
     .map((kid) => {
       const points = state.stats[kid].points;
@@ -256,6 +351,13 @@ function renderPoints() {
 }
 
 function renderProgress() {
+  if (!state.kids.length) {
+    progressRing.style.background = "conic-gradient(#e9ecff 0deg, #e9ecff 0deg)";
+    progressPercent.textContent = "0%";
+    todayCounts.textContent = "0 / 0";
+    streakCount.textContent = "0";
+    return;
+  }
   const totalToday = state.tasks.filter((task) => task.due === todayISO()).length;
   const doneToday = state.tasks.filter(
     (task) => task.due === todayISO() && task.completed
@@ -309,6 +411,13 @@ function renderBadges() {
 }
 
 function renderLeaderboard() {
+  if (!state.kids.length) {
+    leaderboard.innerHTML = '<li class="empty-state">Add kids to get started.</li>';
+    return;
+  }
+  const sorted = [...state.kids].sort((a, b) => b.points - a.points);
+  leaderboard.innerHTML = sorted
+    .map((kid) => `<li>${kid.name} • ${kid.points} ⭐</li>`)
   const sorted = [...kids].sort(
     (a, b) => state.stats[b].points - state.stats[a].points
   );
@@ -318,6 +427,12 @@ function renderLeaderboard() {
 }
 
 function renderSchedule() {
+  if (!state.schedule.length) {
+    scheduleGrid.innerHTML =
+      '<div class="empty-state">Add a weekly plan to see it here.</div>';
+    return;
+  }
+  scheduleGrid.innerHTML = state.schedule
   scheduleGrid.innerHTML = scheduleIdeas
     .map(
       (day) => `
@@ -331,6 +446,18 @@ function renderSchedule() {
 }
 
 function renderRewards() {
+  if (!state.kids.length) {
+    rewardList.innerHTML =
+      '<li class="reward-item empty-state">Add a kid before creating rewards.</li>';
+    return;
+  }
+  if (!state.rewards.length) {
+    rewardList.innerHTML =
+      '<li class="reward-item empty-state">Add your first reward to start saving stars.</li>';
+    return;
+  }
+  const selectedKid = getKidByName(state.selectedRewardKid);
+  const kidPoints = selectedKid?.points ?? 0;
   const kidPoints = state.stats[state.selectedRewardKid].points;
   rewardList.innerHTML = state.rewards
     .map((reward) => {
@@ -353,6 +480,16 @@ function renderRewards() {
     .join("");
 
   rewardList.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const rewardId = button.dataset.reward;
+      const reward = state.rewards.find((item) => item.id === rewardId);
+      if (!reward) return;
+      const currentKid = getKidByName(state.selectedRewardKid);
+      if ((currentKid?.points ?? 0) < reward.cost) return;
+      if (currentKid) {
+        currentKid.points = Math.max(0, currentKid.points - reward.cost);
+      }
+      await persist();
     button.addEventListener("click", () => {
       const rewardId = button.dataset.reward;
       const reward = state.rewards.find((item) => item.id === rewardId);
@@ -366,6 +503,12 @@ function renderRewards() {
 }
 
 function populateRewardKidSelect() {
+  rewardKidSelect.innerHTML = state.kids
+    .map(
+      (kid) =>
+        `<option value="${kid.name}" ${
+          state.selectedRewardKid === kid.name ? "selected" : ""
+        }>${kid.name}</option>`
   rewardKidSelect.innerHTML = kids
     .map(
       (kid) =>
@@ -376,11 +519,31 @@ function populateRewardKidSelect() {
     .join("");
 }
 
+function populateTaskKidSelect() {
+  taskKidSelect.innerHTML = state.kids
+    .map((kid) => `<option value="${kid.name}">${kid.name}</option>`)
+    .join("");
+}
+
+async function toggleTask(taskId, completed) {
 function toggleTask(taskId, completed) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
   if (task.completed === completed) return;
   task.completed = completed;
+  const kid = getKidByName(task.kid);
+  if (!kid) return;
+
+  if (completed) {
+    kid.points += task.points;
+    state.stats.completed += 1;
+    updateStreak();
+  } else {
+    kid.points = Math.max(0, kid.points - task.points);
+    state.stats.completed = Math.max(0, state.stats.completed - 1);
+  }
+
+  await persist();
 
   if (completed) {
     state.stats[task.kid].points += task.points;
@@ -433,6 +596,11 @@ function handleTimerToggle() {
       state.timer.running = false;
       state.timer.remaining = 0;
       startTimer.textContent = "Start";
+      const activeKid = getKidByName(state.activeKid);
+      if (activeKid) {
+        activeKid.points += 3;
+      }
+      void persist();
       state.stats[state.activeKid].points += 3;
       persist();
       renderAll();
@@ -457,11 +625,18 @@ function updateTimerUI() {
 }
 
 function totalPoints() {
+  return state.kids.reduce(
+    (sum, kid) => sum + (kid.points ?? 0),
+    0
+  );
   return kids.reduce((sum, kid) => sum + state.stats[kid].points, 0);
 }
 
 function buildDefaultStats() {
   return {
+    completed: 0,
+    streak: 0,
+    lastCompletionDate: null,
     Ava: { points: 20 },
     Leo: { points: 15 },
     Mia: { points: 12 },
@@ -476,6 +651,157 @@ function loadData(key, fallback) {
   return saved ? JSON.parse(saved) : fallback;
 }
 
+function hydrateFromLocal() {
+  state.kids = normalizeKids(loadData("kids", appData.kids ?? []));
+  state.tasks = normalizeTasks(loadData("tasks", appData.tasks ?? []));
+  state.rewards = normalizeRewards(loadData("rewards", appData.rewards ?? []));
+  state.schedule = normalizeSchedule(loadData("schedule", appData.schedule ?? []));
+  state.stats = loadData("stats", appData.stats ?? buildDefaultStats());
+}
+
+async function hydrateFromSupabase() {
+  const [kidsResult, tasksResult, rewardsResult, scheduleResult, statsResult] =
+    await Promise.all([
+      supabaseClient.from("kids").select("*").order("created_at"),
+      supabaseClient.from("tasks").select("*").order("created_at"),
+      supabaseClient.from("rewards").select("*").order("created_at"),
+      supabaseClient.from("schedule").select("*").order("created_at"),
+      supabaseClient.from("stats").select("*").eq("id", "global").maybeSingle(),
+    ]);
+
+  if (kidsResult.error) throw kidsResult.error;
+  if (tasksResult.error) throw tasksResult.error;
+  if (rewardsResult.error) throw rewardsResult.error;
+  if (scheduleResult.error) throw scheduleResult.error;
+  if (statsResult.error) throw statsResult.error;
+
+  state.kids = normalizeKids(kidsResult.data ?? []);
+  state.tasks = normalizeTasks(tasksResult.data ?? []);
+  state.rewards = normalizeRewards(rewardsResult.data ?? []);
+  state.schedule = normalizeSchedule(scheduleResult.data ?? []);
+  state.stats = statsResult.data
+    ? {
+        completed: statsResult.data.completed ?? 0,
+        streak: statsResult.data.streak ?? 0,
+        lastCompletionDate: statsResult.data.last_completion_date ?? null,
+      }
+    : buildDefaultStats();
+
+  cacheLocal();
+}
+
+async function persist() {
+  if (useSupabase) {
+    await saveToSupabase();
+  }
+  cacheLocal();
+}
+
+function cacheLocal() {
+  localStorage.setItem("kids", JSON.stringify(state.kids));
+  localStorage.setItem("tasks", JSON.stringify(state.tasks));
+  localStorage.setItem("rewards", JSON.stringify(state.rewards));
+  localStorage.setItem("stats", JSON.stringify(state.stats));
+  localStorage.setItem("schedule", JSON.stringify(state.schedule));
+}
+
+async function saveToSupabase() {
+  if (!supabaseClient) return;
+  const kidsPayload = state.kids.map((kid) => ({
+    id: kid.id,
+    name: kid.name,
+    avatar: kid.avatar,
+    points: kid.points ?? 0,
+  }));
+  const tasksPayload = state.tasks.map((task) => ({
+    id: task.id,
+    title: task.title,
+    kid: task.kid,
+    category: task.category,
+    due: task.due,
+    points: task.points,
+    completed: task.completed,
+  }));
+  const rewardsPayload = state.rewards.map((reward) => ({
+    id: reward.id,
+    name: reward.name,
+    cost: reward.cost,
+  }));
+  const schedulePayload = state.schedule.map((item) => ({
+    id: item.id,
+    day: item.day,
+    idea: item.idea,
+  }));
+
+  const operations = [
+    kidsPayload.length
+      ? supabaseClient.from("kids").upsert(kidsPayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    tasksPayload.length
+      ? supabaseClient.from("tasks").upsert(tasksPayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    rewardsPayload.length
+      ? supabaseClient.from("rewards").upsert(rewardsPayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    schedulePayload.length
+      ? supabaseClient.from("schedule").upsert(schedulePayload, { onConflict: "id" })
+      : Promise.resolve({ error: null }),
+    supabaseClient.from("stats").upsert(
+      {
+        id: "global",
+        completed: state.stats.completed,
+        streak: state.stats.streak,
+        last_completion_date: state.stats.lastCompletionDate,
+      },
+      { onConflict: "id" }
+    ),
+  ];
+
+  const [kidsResult, tasksResult, rewardsResult, scheduleResult, statsResult] =
+    await Promise.all(operations);
+
+  if (kidsResult.error) throw kidsResult.error;
+  if (tasksResult.error) throw tasksResult.error;
+  if (rewardsResult.error) throw rewardsResult.error;
+  if (scheduleResult.error) throw scheduleResult.error;
+  if (statsResult.error) throw statsResult.error;
+}
+
+function normalizeKids(kids) {
+  return kids.map((kid) => ({
+    id: kid.id ?? crypto.randomUUID(),
+    name: kid.name,
+    avatar: kid.avatar ?? "🌟",
+    points: Number(kid.points ?? 0),
+  }));
+}
+
+function normalizeTasks(tasks) {
+  return tasks.map((task) => ({
+    id: task.id ?? crypto.randomUUID(),
+    title: task.title,
+    kid: task.kid,
+    category: task.category,
+    due: task.due,
+    points: Number(task.points ?? 0),
+    completed: Boolean(task.completed),
+  }));
+}
+
+function normalizeRewards(rewards) {
+  return rewards.map((reward) => ({
+    id: reward.id ?? crypto.randomUUID(),
+    name: reward.name,
+    cost: Number(reward.cost ?? 0),
+  }));
+}
+
+function normalizeSchedule(schedule) {
+  return schedule.map((item) => ({
+    id: item.id ?? crypto.randomUUID(),
+    day: item.day,
+    idea: item.idea,
+  }));
 function persist() {
   localStorage.setItem("tasks", JSON.stringify(state.tasks));
   localStorage.setItem("rewards", JSON.stringify(state.rewards));
@@ -510,3 +836,64 @@ function formatTimer(seconds) {
 }
 
 updateTimerUI();
+
+function ensureActiveKid() {
+  if (!state.kids.length) {
+    state.activeKid = null;
+    state.selectedRewardKid = null;
+    return;
+  }
+  if (!state.activeKid || !state.kids.find((kid) => kid.name === state.activeKid)) {
+    state.activeKid = state.kids[0].name;
+  }
+  if (
+    !state.selectedRewardKid ||
+    !state.kids.find((kid) => kid.name === state.selectedRewardKid)
+  ) {
+    state.selectedRewardKid = state.kids[0].name;
+  }
+}
+
+function renderKids() {
+  if (!state.kids.length) {
+    kidList.innerHTML =
+      '<div class="empty-state">Add your first kid to get started.</div>';
+    return;
+  }
+  kidList.innerHTML = state.kids
+    .map(
+      (kid) => `
+      <button class="kid-chip ${
+        state.activeKid === kid.name ? "active" : ""
+      }" data-kid="${kid.name}">
+        <span class="avatar">${kid.avatar ?? "🌟"}</span>
+        ${kid.name}
+      </button>
+    `
+    )
+    .join("");
+}
+
+function getKidByName(name) {
+  return state.kids.find((kid) => kid.name === name);
+}
+
+function toggleDisabledState() {
+  const disabled = !state.kids.length;
+  [
+    tasksCard,
+    scheduleCard,
+    rewardCard,
+    achievementsCard,
+    leaderboardCard,
+    progressCard,
+    timerCard,
+  ].forEach((card) => card.classList.toggle("is-disabled", disabled));
+  openTaskForm.disabled = disabled;
+  rewardForm.querySelectorAll("input, button").forEach((input) => {
+    input.disabled = disabled;
+  });
+  startTimer.disabled = disabled;
+  resetTimer.disabled = disabled;
+  taskKidSelect.disabled = disabled;
+}
