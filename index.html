@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SimpleSteps • Kids Task Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="top-bar">
+      <div class="brand">
+        <span class="logo">⭐</span>
+        <div>
+          <p class="eyebrow">SimpleSteps</p>
+          <h1>Kids Task Tracker</h1>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="ghost" id="themeToggle" type="button">Toggle Theme</button>
+        <button class="primary" id="homeButton" type="button">Home</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card" id="homeSection">
+        <h2>Welcome</h2>
+        <p class="muted">Choose where you want to go.</p>
+        <div class="tile-grid">
+          <button class="tile" data-target="parentSection">Parent/Teacher Signup &amp; Sign In</button>
+          <button class="tile" data-target="kidsLoginSection">Kids Login</button>
+          <button class="tile" data-target="reportsSection">Reports Dashboard</button>
+          <button class="tile" data-target="settingsSection">App Settings</button>
+        </div>
+      </section>
+
+      <section class="card hidden" id="parentSection">
+        <div class="section-header">
+          <div>
+            <h2>Parent/Teacher Dashboard</h2>
+            <p class="muted">Add kids, create tasks, and assign XP.</p>
+          </div>
+          <button class="ghost" data-target="homeSection" type="button">Back</button>
+        </div>
+
+        <div class="grid">
+          <div class="panel">
+            <h3>Add Kid / Student</h3>
+            <form id="kidForm" class="form">
+              <input type="text" name="name" placeholder="Kid name" required />
+              <input type="text" name="pin" placeholder="4-digit PIN" minlength="4" maxlength="4" required />
+              <button class="primary" type="submit">Add Kid</button>
+            </form>
+            <ul class="list" id="kidList"></ul>
+          </div>
+
+          <div class="panel">
+            <h3>Create Task</h3>
+            <form id="taskForm" class="form">
+              <input type="text" name="title" placeholder="Task name" required />
+              <input type="number" name="xp" placeholder="XP" min="1" value="5" required />
+              <input
+                type="number"
+                name="minutes"
+                placeholder="Estimated minutes"
+                min="1"
+                value="10"
+                required
+              />
+              <button class="primary" type="submit">Create Task</button>
+            </form>
+            <ul class="list" id="taskList"></ul>
+          </div>
+
+          <div class="panel">
+            <h3>Assign Task</h3>
+            <form id="assignForm" class="form">
+              <select name="kid" id="assignKid" required></select>
+              <select name="task" id="assignTask" required></select>
+              <button class="primary" type="submit">Assign</button>
+            </form>
+            <ul class="list" id="assignmentList"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="card hidden" id="kidsLoginSection">
+        <div class="section-header">
+          <div>
+            <h2>Kids Login</h2>
+            <p class="muted">Enter your PIN to see your tasks.</p>
+          </div>
+          <button class="ghost" data-target="homeSection" type="button">Back</button>
+        </div>
+        <form id="kidsLoginForm" class="form inline">
+          <select name="kid" id="kidsLoginKid" required></select>
+          <input type="text" name="pin" placeholder="PIN" minlength="4" maxlength="4" required />
+          <button class="primary" type="submit">Login</button>
+        </form>
+        <p class="error" id="kidsLoginError"></p>
+      </section>
+
+      <section class="card hidden" id="kidDashboardSection">
+        <div class="section-header">
+          <div>
+            <h2 id="kidDashboardTitle">Kid Dashboard</h2>
+            <p class="muted">Track your tasks and XP.</p>
+          </div>
+          <div class="section-actions">
+            <button class="ghost" id="kidLogout" type="button">Logout</button>
+            <button class="ghost" data-target="homeSection" type="button">Home</button>
+          </div>
+        </div>
+        <div class="kid-summary">
+          <div class="stat-card">
+            <span class="label">Total XP</span>
+            <strong id="kidTotalXp">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Completed Tasks</span>
+            <strong id="kidCompleted">0</strong>
+          </div>
+        </div>
+        <ul class="task-board" id="kidTaskBoard"></ul>
+      </section>
+
+      <section class="card hidden" id="reportsSection">
+        <div class="section-header">
+          <div>
+            <h2>Reports Dashboard</h2>
+            <p class="muted">Quick stats for parents/teachers.</p>
+          </div>
+          <button class="ghost" data-target="homeSection" type="button">Back</button>
+        </div>
+        <div class="report-grid">
+          <div class="stat-card">
+            <span class="label">Kids</span>
+            <strong id="reportKids">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Tasks Created</span>
+            <strong id="reportTasks">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Assigned Tasks</span>
+            <strong id="reportAssignments">0</strong>
+          </div>
+          <div class="stat-card">
+            <span class="label">Completed</span>
+            <strong id="reportCompleted">0</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="card hidden" id="settingsSection">
+        <div class="section-header">
+          <div>
+            <h2>App Settings</h2>
+            <p class="muted">Theme and display options.</p>
+          </div>
+          <button class="ghost" data-target="homeSection" type="button">Back</button>
+        </div>
+        <div class="settings">
+          <button class="primary" id="toggleThemeCard" type="button">Toggle Theme</button>
+          <button class="ghost" id="resetData" type="button">Reset All Data</button>
+          <p class="muted">Reset removes all kids, tasks, and assignments.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
